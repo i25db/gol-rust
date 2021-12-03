@@ -15,7 +15,7 @@ impl GoL {
     }
 
     fn bound_check(&self, x: usize, y: usize) -> Result<(), String> {
-        if x < self.width && y < self.height && x >= 0 && y >= 0 {
+        if x < self.width && y < self.height {
             Ok(())
         } else {
             Err(String::from("Position out of bounds"))
@@ -54,14 +54,12 @@ impl GoL {
                 while h < 2 {
                     while v < 2 {
                         if (x+h) < 0 || (y+v) < 0 {
-                            return Err(String::from("Position out of bounds"));
+                            v += 1;
+                            continue;//return Err(String::from("Position out of bounds"));
                         }
 
-                        match self.get_cell_at((x+h) as usize, (y+v) as usize) {
-                            Err(msg) => return Err(msg),
-                            Ok(val) => {
-                                if val && !(h == 0 && v == 0) { count += 1 }
-                            }
+                        if let Ok(val) = self.get_cell_at((x+h) as usize, (y+v) as usize) {
+                            if val && !(h == 0 && v == 0) { count += 1 }
                         }
                         
                         v += 1;
@@ -76,7 +74,7 @@ impl GoL {
         }
     }
 
-    pub fn simulate_next_step(gol: GoL) -> Result<GoL, String> {
+    pub fn simulate_next_step(gol: &GoL) -> Result<GoL, String> {
         let mut result = GoL::new(gol.width, gol.height);
         
         for (x, h) in gol.map.iter().enumerate() {
@@ -89,7 +87,7 @@ impl GoL {
                 let working_cell = match gol.get_cell_at(x,y) {
                     Ok(val) => val,
                     Err(msg) => return Err(msg)
-                }
+                };
 
                 if neighbors < 2 {
                     if let Err(msg) = result.set_cell_at(x,y, false) {
@@ -199,5 +197,98 @@ mod tests {
         // Test neighbors center
         assert_eq!(1, game.get_neighbors_alive_count(2,2).unwrap(),
             "Failed: Found incorrect number of neighbors (center)");
+    }
+
+    #[test]
+    fn simulate_next_step_test() {
+        let mut gol = GoL::new(3,3);
+        
+        // 0 neighbors test
+        // 0 0 0    0 0 0
+        // 0 1 0 => 0 0 0
+        // 0 0 0    0 0 0
+        gol.set_cell_at(1,1, true).unwrap();
+        gol = GoL::simulate_next_step(&gol).unwrap();
+
+        assert!(!gol.get_cell_at(1,1).unwrap(), "Failed: 0 neighbors test; didn't kill cell");
+        assert_eq!(0, gol.get_neighbors_alive_count(1,1).unwrap(),
+            "Failed: 0 neighbors test; generated neighbors");
+
+        gol = GoL::new(3,3);
+
+        // 1 neighbor test
+        // 1 0 0    0 0 0
+        // 0 1 0 => 0 0 0
+        // 0 0 0    0 0 0
+        gol.set_cell_at(0,0, true).unwrap();
+        gol.set_cell_at(1,1, true).unwrap();
+        
+        gol = GoL::simulate_next_step(&gol).unwrap();
+
+        assert!(!gol.get_cell_at(1,1).unwrap(), "Failed: 1 neighbor test; didn't kill cell");
+        assert!(!gol.get_cell_at(0,0).unwrap(), "Failed: 1 neighbor test; didn't kill cell");
+       
+        assert_eq!(0, gol.get_neighbors_alive_count(1,1).unwrap(),
+            "Failed: 1 neighbor test; generated neighbors");
+
+        gol = GoL::new(3,3);
+
+        // 2 neighbor test
+        // 1 0 1    0 1 0
+        // 0 1 0 => 0 1 0
+        // 0 0 0    0 0 0
+        gol.set_cell_at(0,0, true).unwrap();
+        gol.set_cell_at(1,1, true).unwrap();
+        gol.set_cell_at(2,0, true).unwrap();
+        
+        gol = GoL::simulate_next_step(&gol).unwrap();
+
+        assert!(!gol.get_cell_at(0,0).unwrap(), "Failed: 2 neighbors test; didn't kill cell");
+        assert!(!gol.get_cell_at(2,0).unwrap(), "Failed: 2 neighbors test; didn't kill cell");
+        assert!(gol.get_cell_at(1,0).unwrap(), "Failed: 2 neighbors test; didn't generate cell");
+        assert!(gol.get_cell_at(1,1).unwrap(), "Failed: 2 neighbors test; didn't keep cell alive");
+
+        assert_eq!(1, gol.get_neighbors_alive_count(1,1).unwrap(),
+            "Failed: 2 neighbor test; incorrect neighbors count");
+
+        gol = GoL::new(3,3);
+
+        // 3 neighbor test
+        // 1 0 1    0 0 0
+        // 0 0 0 => 0 1 0
+        // 0 1 0    0 0 0
+        gol.set_cell_at(0,0, true).unwrap();
+        gol.set_cell_at(2,0, true).unwrap();
+        gol.set_cell_at(1,2, true).unwrap();
+        
+        gol = GoL::simulate_next_step(&gol).unwrap();
+
+        assert!(gol.get_cell_at(1,1).unwrap(), "Failed: 3 neighbors test; didn't generate cell");
+
+        assert_eq!(0, gol.get_neighbors_alive_count(1,1).unwrap(),
+            "Failed: 3 neighbor test; generated neighbors");
+
+        gol = GoL::new(3,3);
+
+        // 4 neighbor test
+        // 1 0 1    0 1 0
+        // 0 1 0 => 1 0 1
+        // 1 0 1    0 1 0
+        gol.set_cell_at(0,0, true).unwrap();
+        gol.set_cell_at(2,0, true).unwrap();
+        gol.set_cell_at(1,1, true).unwrap();
+        gol.set_cell_at(0,2, true).unwrap();
+        gol.set_cell_at(2,2, true).unwrap();
+        
+        gol = GoL::simulate_next_step(&gol).unwrap();
+
+        assert!(gol.get_cell_at(1,0).unwrap(), "Failed: 4 neighbors test; cell not alive");
+        assert!(gol.get_cell_at(0,1).unwrap(), "Failed: 4 neighbors test; cell not alive");
+        assert!(gol.get_cell_at(2,1).unwrap(), "Failed: 4 neighbors test; cell not alive");
+        assert!(gol.get_cell_at(1,2).unwrap(), "Failed: 4 neighbors test; cell not alive");
+        assert!(!gol.get_cell_at(1,1).unwrap(), "Failed: 4 neighbors test; center alive");
+        
+        assert_eq!(4, gol.get_neighbors_alive_count(1,1).unwrap(),
+            "Failed: 4 neighbor test; incorrect neighbors count");
     }
 }
