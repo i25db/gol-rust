@@ -1,69 +1,117 @@
 pub struct GoL {
     map : Vec<Vec<bool>>,
-    width: i32,
-    height: i32
+    width: usize,
+    height: usize
 }
 
 impl GoL {
     // Generate a GoL of the given size with all dead cells
-    pub fn new(width: i32, height: i32) -> GoL{
+    pub fn new(width: usize, height: usize) -> GoL{
         GoL { 
             map: vec![vec![false; height as usize]; width as usize],
             width: width,
             height: height
         }
     }
-    // Returns true if (x,y) is in bounds else returns false
-    fn bound_check(&self, x: i32, y: i32) -> bool {
-        x < self.width && y < self.height && x >= 0 && y >= 0
+
+    fn bound_check(&self, x: usize, y: usize) -> Result<(), String> {
+        if x < self.width && y < self.height && x >= 0 && y >= 0 {
+            Ok(())
+        } else {
+            Err(String::from("Position out of bounds"))
+        }
     }
 
     // returns the cell at (x,y) or None if out of bounds
-    pub fn get_cell_at(&self, x: i32, y: i32) -> Option<bool> {
-        if !self.bound_check(x, y) {
-            None
-        } else {
-            Some(self.map[x as usize][y as usize])
+    pub fn get_cell_at(&self, x: usize, y: usize) -> Result<bool, String> {
+        match self.bound_check(x, y) {
+            Err(msg) => Err(msg),
+            Ok(_) => Ok(self.map[x][y])
         }
     }
 
     // sets the cell at (x,y) returns Ok if successful else returns Err
-    pub fn set_cell_at(&mut self, x: i32, y: i32, val: bool) -> Result<(), ()> {
-        if !self.bound_check(x, y) {
-            Err(())
-        } else {
-            self.map[x as usize][y as usize] = val;
-
-            Ok(())
+    pub fn set_cell_at(&mut self, x: usize, y: usize, val: bool) -> Result<(), String> {
+        match self.bound_check(x, y) {
+            Err(msg) => Err(msg),
+            Ok(_) => {
+                self.map[x][y] = val;
+                Ok(())
+            }
         }
     }
 
     // returns the neighbors of (x,y) or None if out of bounds
-    pub fn get_neighbors_alive_count(&self, x: i32, y: i32) -> Option<i32> {
-        if !self.bound_check(x, y) {
-            return None;
-        }
+    pub fn get_neighbors_alive_count(&self, x: usize, y: usize) -> Result<i32, String> {
+        match self.bound_check(x, y) {
+            Err(msg) => Err(msg),
+            Ok(_) => {
+                let mut count = 0;
 
-        let mut count = 0;
+                let (x, y) = (x as i32, y as i32);
+                let (mut h, mut v) = (-1, -1);
 
-        let (mut h, mut v) = (-1, -1);
+                while h < 2 {
+                    while v < 2 {
+                        if (x+h) < 0 || (y+v) < 0 {
+                            return Err(String::from("Position out of bounds"));
+                        }
 
-        while h < 2 {
-            while v < 2 {
-                if let Some(val) = self.get_cell_at(x+h, y+v) {
-                    if val && !(h == 0 && v == 0) { // skip origin
-                        count += 1;
+                        match self.get_cell_at((x+h) as usize, (y+v) as usize) {
+                            Err(msg) => return Err(msg),
+                            Ok(val) => {
+                                if val && !(h == 0 && v == 0) { count += 1 }
+                            }
+                        }
+                        
+                        v += 1;
                     }
+
+                    h += 1;
+                    v = -1;
                 }
 
-                v += 1;
+                Ok(count)
             }
+        }
+    }
 
-            h += 1;
-            v = -1;
+    pub fn simulate_next_step(gol: GoL) -> Result<GoL, String> {
+        let mut result = GoL::new(gol.width, gol.height);
+        
+        for (x, h) in gol.map.iter().enumerate() {
+            for (y, _) in h.iter().enumerate() {
+                let neighbors = match gol.get_neighbors_alive_count(x,y) {
+                    Ok(n) => n,
+                    Err(msg) => return Err(msg)
+                };
+
+                let working_cell = match gol.get_cell_at(x,y) {
+                    Ok(val) => val,
+                    Err(msg) => return Err(msg)
+                }
+
+                if neighbors < 2 {
+                    if let Err(msg) = result.set_cell_at(x,y, false) {
+                        return Err(msg);
+                    }
+                } else if (neighbors == 2 || neighbors == 3) && working_cell {
+                    if let Err(msg) = result.set_cell_at(x,y, true) {
+                        return Err(msg);
+                    }
+                } else if neighbors > 3 {
+                    if let Err(msg) = result.set_cell_at(x,y, false) {
+                        return Err(msg);
+                    }
+                } else if neighbors == 3 {
+                    if let Err(msg) = result.set_cell_at(x,y, true) {
+                        return Err(msg);
+                    }
+                }
+            }
         }
 
-        Some(count)
+        Ok(result)
     }
 }
 
@@ -114,9 +162,9 @@ mod tests {
         assert!(game.get_cell_at(1,1).unwrap(),
             "Failed at get_cell_at().unwrap()");
 
-        // Test get_cell_at() returns none for out of bound input
-        assert!(game.get_cell_at(6,6).is_none(),
-            "Failed: Getting cell out of bounds did not return none");
+        // Test get_cell_at() returns err for out of bound input
+        assert!(game.get_cell_at(6,6).is_err(),
+            "Failed: Getting cell out of bounds did not return err");
     }
 
     #[test]
@@ -129,8 +177,8 @@ mod tests {
         game.set_cell_at(2, 1, true).unwrap();
 
         // Test out of bounds
-        assert!(game.get_neighbors_alive_count(7,7).is_none(),
-            "Failed: Getting cell neighbors out of bound did not return none");
+        assert!(game.get_neighbors_alive_count(7,7).is_err(),
+            "Failed: Getting cell neighbors out of bound did not return err");
 
         // Test no neighbors corner
         assert_eq!(0, game.get_neighbors_alive_count(4,4).unwrap(),
