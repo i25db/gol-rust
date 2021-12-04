@@ -1,3 +1,5 @@
+mod display;
+
 pub struct GoL {
     map : Vec<Vec<bool>>,
     width: usize,
