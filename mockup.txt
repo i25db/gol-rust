@@ -1,0 +1,15 @@
+GoL Mock up
+
+╔═ Game of Life ═══════════════════════════════╦ Controls ════════════════╗
+║                                              ║   Space - play/pause     ║
+║                                              ║   + - increase speed     ║
+║                                              ║   - - decrease speed     ║
+║                                              ║   Arrows - move cursor   ║
+║                                              ║   Enter - toggle cell    ║
+║                                              ║                          ║
+║                                              ║                          ║
+║                                              ║                          ║
+║                                              ║                          ║
+║                                              ║                          ║
+║                                              ║                          ║
+╚═══════════════════════════════ Playing: 4/s ═╩══════════════════════════╝

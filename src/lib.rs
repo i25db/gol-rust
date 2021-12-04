@@ -10,7 +10,7 @@ pub struct GoL {
 
 impl GoL {
     // Generate a GoL of the given size with all dead cells
-    pub fn new(dims: Dimensions) -> GoL{
+    pub fn new(dims: Dimensions) -> GoL {
         GoL { 
             map: vec![vec![false; dims.height as usize]; dims.width as usize],
             dims: dims
@@ -58,7 +58,7 @@ impl GoL {
                     while v < 2 {
                         if (x+h) < 0 || (y+v) < 0 {
                             v += 1;
-                            continue;//return Err(String::from("Position out of bounds"));
+                            continue;
                         }
 
                         if let Ok(val) = self.get_cell_at( Position { x: (x+h) as usize, y: (y+v) as usize}) { 

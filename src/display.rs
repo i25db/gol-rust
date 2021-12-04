@@ -44,9 +44,7 @@ pub fn get_viewport_data(v_pos: Position, v_dims: Dimensions, gol: &GoL) -> Resu
 
 #[cfg(test)]
 mod tests {
-    use super::super::GoL;
-    use super::super::Position;
-    use super::super::Dimensions;
+    use super::super::{GoL, Position, Dimensions};
 
     #[test]
     fn viewport_test() {
