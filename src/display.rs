@@ -13,31 +13,55 @@
 use super::{Position, Dimensions, GoL};
 
 pub fn get_viewport_data(v_pos: Position, v_dims: Dimensions, gol: &GoL) -> Result<Vec<String>, String> {
-    // Perform checks
-    let size = Dimensions { width: v_dims.width + v_pos.x, height: v_dims.height + v_pos.y };
-    if size.width > gol.dims.width || size.height > gol.dims.height {
-        return Err(String::from("Viewport out of bounds"));
+    let mut result = Vec::new();
+    
+    // If v_dims.y > gol.dims.y prepend lines equal to (v_dims.y - gol.dims.y) / 2
+    // If v_dims.x > gold.dims.x each line gets a left padding equal to (v_dims.x - gol.dims.y) / 2
+    if v_dims.height > gol.dims.height {
+        let diff = v_dims.height - gol.dims.height;
+        for _ in 0..(diff/2) {
+            result.push(String::from("\n"));
+        }
     }
     
-    let mut result = Vec::new();
-    let (mut x, mut y) = (0 as usize, 0 as usize);
-    
-    while y < v_dims.height {
+    let mut padding = String::new();
+    if v_dims.width > gol.dims.width {
+        let diff = v_dims.width - gol.dims.width;
+        for _ in 0..(diff/2) {
+            padding.push(' ');
+        }
+    }
+
+    for y in 0..v_dims.height {
         // TODO: Implement smaller viewport
-        let mut row = String::new();
-        while x < v_dims.width {
-            if let Ok(val) = gol.get_cell_at(Position { x: v_pos.x+x, y: v_pos.y+y }) {
-                if val { row = row + "1" }
-                else { row = row + " " }
+        let mut row = padding.clone();
+        for x in 0..v_dims.width {
+            if v_pos.x + x >= gol.dims.width {
+                row = row + padding.clone().as_ref();
+                break;
             }
 
-            x += 1;
+            if v_pos.y + y >= gol.dims.height {
+                if v_dims.height > gol.dims.height {
+                    let diff = v_dims.height - gol.dims.height;
+                    for _ in 0..(diff/2) {
+                        result.push(String::from("\n"));
+                    }
+                }
+
+                return Ok(result);
+            }
+
+            if let Ok(val) = gol.get_cell_at(Position { x: v_pos.x+x, y: v_pos.y+y }) {
+                if val { row.push('1') }
+                else { row.push(' ') }
+            }
         }
         
         result.push(row);
-        y += 1;
-        x = 0;
     }
+
+    
 
     Ok(result)
 }
@@ -53,10 +77,6 @@ mod tests {
         gol.set_cell_at(Position { x: 3, y: 2 }, true).unwrap();
         gol.set_cell_at(Position { x: 3, y: 3 }, true).unwrap();
 
-        // Test get_viewport_data properly returns an error
-        assert!(super::get_viewport_data(Position { x: 5, y: 5 }, Dimensions { width: 5, height: 5 }, &gol).is_err(),
-            "Failed: Viewport outside of bounds did not return an error");
-
         // Test get_viewport_data returns the correct viewport
         let viewport = super::get_viewport_data(
             Position { x: 0, y: 0 }, 
@@ -66,5 +86,33 @@ mod tests {
         assert!(viewport[2] == String::from("   1 "), "Failed: Third viewport row not set properly");
         assert!(viewport[3] == String::from("   1 "), "Failed: Fourth viewport row not set properly");
         assert!(viewport[4] == String::from("     "), "Failed: Fifth viewport row not set properly");
+
+        // 1 1
+        // 1 1
+        // 1 1
+        let mut gol = GoL::new(Dimensions { width: 3, height: 3 });
+        gol.set_cell_at(Position { x: 0, y: 0 }, true).unwrap();
+        gol.set_cell_at(Position { x: 2, y: 0 }, true).unwrap();
+        gol.set_cell_at(Position { x: 0, y: 1 }, true).unwrap();
+        gol.set_cell_at(Position { x: 2, y: 1 }, true).unwrap();
+        gol.set_cell_at(Position { x: 0, y: 2 }, true).unwrap();
+        gol.set_cell_at(Position { x: 2, y: 2 }, true).unwrap();
+        
+        // Test gol width smaller than viewport
+        let viewport = super::get_viewport_data(
+        Position { x: 0, y: 0 }, 
+        Dimensions { width: 5, height: 3 }, &gol).unwrap();
+
+        assert!(viewport[0] == String::from(" 1 1 "), "Failed: First viewport row not padded properly");
+        assert!(viewport[1] == String::from(" 1 1 "), "Failed: Second viewport row not padded properly");
+        assert!(viewport[2] == String::from(" 1 1 "), "Failed: Third viewport row not padded properly");
+
+        // Test gol height smaller than viewport
+        let viewport = super::get_viewport_data(
+        Position { x: 0, y: 0 }, 
+        Dimensions { width: 3, height: 5 }, &gol).unwrap();
+
+        assert!(viewport[0] == String::from("\n"), "Failed: First viewport row not set to newline");
+        assert!(viewport[4] == String::from("\n"), "Failed: Fifth viewport row not set to newline");
     }
 }
