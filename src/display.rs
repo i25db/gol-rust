@@ -1,16 +1,78 @@
-//use std::{error::Error, io, sync::mpsc, thread, time::Duration, iter::Iterator};
-//use termion::{
-//    event::Key,
-//    input::{MouseTerminal, TermRead},
-//    raw::IntoRawMode,
-//    screen::AlternateScreen,
-//};
-//use tui::{
-//    backend::{Backend, TermionBackend},
-//    Terminal,
-//};
+use std::{error::Error, io, time::Duration, io::Stdout};
+use termion::{
+    event::Key,
+    input::TermRead,
+    raw::{IntoRawMode, RawTerminal},
+};
+use tui::{
+    backend::{Backend, TermionBackend},
+    layout::{Constraint, Direction, Layout},
+    text::Span,
+    widgets::{Block, BorderType, Borders, Paragraph},
+    Frame, Terminal,
+};
 
 use super::{Position, Dimensions, GoL};
+
+pub fn setup_terminal() -> Result<Terminal<TermionBackend<RawTerminal<Stdout>>>, Box<dyn Error>> {
+    let stdout = io::stdout().into_raw_mode()?;
+    let backend = TermionBackend::new(stdout);
+    let terminal = Terminal::new(backend)?;
+
+    Ok(terminal) 
+}
+
+pub fn run_gol<B: Backend>(
+    term: &mut Terminal<B>, 
+    gol: &mut GoL,
+    _tick_rate: Duration
+    ) -> Result<(), Box<dyn Error>> {
+    
+    term.clear()?;
+    loop {
+        term.draw(|f| ui(f, &gol))?;
+        for key in io::stdin().keys() {
+            match key? {
+                Key::Char('q') => {
+                    term.clear()?;
+                    return Ok(());
+                },
+                _ => {}
+            }
+            
+        }
+    }
+}
+
+fn ui<B: Backend>(f: &mut Frame<B>, gol: &GoL) {
+    let size = f.size();
+
+    let chunks = Layout::default()
+        .direction(Direction::Horizontal)
+        .constraints([Constraint::Percentage(70), Constraint::Percentage(30)].as_ref())
+        .split(size);
+
+    // GoL block
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(Span::from("Conway's Game of Life"))
+        .border_type(BorderType::Rounded);
+
+    let paragraph = Paragraph::new(get_viewport_data(
+            Position { x: 0, y: 0 },
+            Dimensions { width: chunks[0].width as usize, height: chunks[1].height as usize },
+            &gol)
+            .expect("Failed to draw GOL").join("\n"))
+        .block(block);
+    f.render_widget(paragraph, chunks[0]);
+
+    // Commands block
+    let block = Block::default()
+        .borders(Borders::ALL)
+        .title(Span::from("Commands"))
+        .border_type(BorderType::Rounded);
+    f.render_widget(block, chunks[1]);
+}
 
 pub fn get_viewport_data(v_pos: Position, v_dims: Dimensions, gol: &GoL) -> Result<Vec<String>, String> {
     let mut result = Vec::new();
@@ -78,7 +140,7 @@ mod tests {
         gol.set_cell_at(Position { x: 3, y: 3 }, true).unwrap();
 
         // Test get_viewport_data returns the correct viewport
-        let viewport = super::get_viewport_data(
+        let viewport =  super::get_viewport_data(
             Position { x: 0, y: 0 }, 
             Dimensions { width: 5, height: 5 }, &gol).unwrap();
         assert!(viewport[0] == String::from("     "), "Failed: First viewport row not set properly");
