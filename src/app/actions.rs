@@ -8,12 +8,20 @@ use termion::event::Key as K;
 #[derive(Debug, Clone, Copy, Eq, PartialEq)]
 pub enum Action {
     Quit,
+    Sleep,
+    IncrementDelay,
+    DecrementDelay,
 }
 
 impl Action {
     /// All available actions
     pub fn iterator() -> Iter<'static, Action> {
-        static ACTIONS: [Action; 1] = [Action::Quit];
+        static ACTIONS: [Action; 4] = [
+            Action::Quit,
+            Action::Sleep,
+            Action::IncrementDelay,
+            Action::DecrementDelay,
+        ];
         ACTIONS.iter()
     }
 
@@ -21,6 +29,9 @@ impl Action {
     pub fn keys(&self) -> &[Key] {
         match self {
             Action::Quit => &[Key(K::Ctrl('c')), Key(K::Char('q')), Key(K::Esc)],
+            Action::Sleep => &[Key(K::Char('s'))],
+            Action::IncrementDelay => &[Key(K::Char('+'))],
+            Action::DecrementDelay => &[Key(K::Char('-'))]
         }
     }
 }
@@ -30,6 +41,9 @@ impl Display for Action {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         let str = match self {
             Action::Quit => "Quit",
+            Action::Sleep => "Sleep",
+            Action::IncrementDelay => "Increment delay",
+            Action::DecrementDelay => "Decrement delay",
         };
         write!(f, "{}", str)
     }

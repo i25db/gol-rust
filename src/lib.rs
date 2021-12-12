@@ -1,29 +1,29 @@
-use std::cell::RefCell;
-use std::rc::Rc;
+use std::sync::Arc;
+use std::time::Duration;
 
-use std::{io, time::Duration};
-use termion::raw::IntoRawMode;
-
-use app::{App, AppReturn };
+use app::{App, AppReturn};
 use eyre::Result;
 use inputs::events::Events;
 use inputs::InputEvent;
+use crate::io::IoEvent;
 use tui::backend::TermionBackend;
 use tui::Terminal;
+use termion::raw::IntoRawMode;
 
 use crate::app::ui;
 
 pub mod app;
 pub mod inputs;
+pub mod io;
 
 pub mod display;
 pub mod pos;
 
 pub use pos::{Dimensions, Position};
 
-pub fn start_ui(app: Rc<RefCell<App>>) -> Result<()> {
-    // Configure Crossterm backend for tui
-    let stdout = io::stdout().into_raw_mode()?;
+// Configure Crossterm backend for tui
+pub async fn start_ui(app: &Arc<tokio::sync::Mutex<App>>) -> Result<()> {
+    let stdout = std::io::stdout().into_raw_mode()?;
     let backend = TermionBackend::new(stdout);
     let mut terminal = Terminal::new(backend)?;
     terminal.clear()?;
@@ -33,21 +33,21 @@ pub fn start_ui(app: Rc<RefCell<App>>) -> Result<()> {
     let tick_rate = Duration::from_millis(200);
     let events = Events::new(tick_rate);
 
-    loop {
-        let mut app = app.borrow_mut();
+    // Trigger state change from Init to Initialized
+    {
+        let mut app = app.lock().await;
+        // Here we assume the the first load is a long task
+        app.dispatch(IoEvent::Initialize).await;
+    }
 
-        // Render
+    loop {
+        let mut app = app.lock().await;
+
         terminal.draw(|rect| ui::draw(rect, &app))?;
 
-        // ② Handle inputs
         let result = match events.next()? {
-            // InputEvent::Input(Key::Esc) |
-            // InputEvent::Input(Key::Char('q')) |
-            // InputEvent::Input(Key::Ctrl('c')) => break,
-            // ③ let's process that event
-            InputEvent::Input(key) => app.do_action(key),
-            // ④ handle no user input
-            InputEvent::Tick => app.update_on_tick(),
+            InputEvent::Input(key) => app.do_action(key).await,
+            InputEvent::Tick => app.update_on_tick().await,
         };
 
         if result == AppReturn::Exit {
@@ -55,10 +55,8 @@ pub fn start_ui(app: Rc<RefCell<App>>) -> Result<()> {
         }
     }
 
-    // Restore the terminal and close application
     terminal.clear()?;
     terminal.show_cursor()?;
-    // crossterm::terminal::disable_raw_mode()?;
 
     Ok(())
 }

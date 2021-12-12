@@ -13,7 +13,7 @@ impl Display for Key {
             event::Key::Alt(c) => write!(f, "<Alt+{}>", c),
             event::Key::Ctrl(c) => write!(f, "<Ctrl+{}>", c),
             event::Key::Char(c) => write!(f, "<{}>", c),
-            _ => write!(f, "<{:?}>", self),
+            _ => write!(f, "<{:?}>", self.0),
         }
     }
 }
